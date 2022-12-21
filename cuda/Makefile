@@ -1,10 +1,6 @@
 CC = gcc
 NVCC = nvcc
 
-CUDA_DIR = /usr/local/cuda
-
-CUDA_LIB_DIR = /usr/local/cuda/lib64
-
 CC := $(CUDA_DIR)/bin/nvcc
 
 INCLUDE := $(CUDA_DIR)/include
@@ -18,8 +14,7 @@ NVCCFLAGS += -O3 \
 			 -lm \
 			 $(SPACE)
 
-CFLAGS += -I../common \
-					-I/usr/local/cuda \
+CFLAGS += -I/usr/local/cuda \
 		  -O3 \
 		  -Wall \
 		  $(SPACE)
