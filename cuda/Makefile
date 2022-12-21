@@ -12,6 +12,7 @@ DEFS += \
 NVCCFLAGS += -O3 \
 			 -use_fast_math \
 			 -lm \
+			 -lcusolver \
 			 $(SPACE)
 
 CFLAGS += -I/usr/local/cuda \
