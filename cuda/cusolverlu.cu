@@ -26,18 +26,21 @@ int main() {
   
   cudaMemcpy(deviceA, hostA, sizeA, cudaMemcpyHostToDevice);
   cudaMemcpy(deviceC, hostC, sizeC, cudaMemcpyHostToDevice);
-    
-  cublasHandle_t* cublasH = nullptr;
-  cublasCreate(cublasH); // note we dont catch error here!
+
+  std::printf("A matrix print:\n");
+  print_matrix(hostA, N); 
+
+  cublasHandle_t cublasH;
+  cublasCreate(&cublasH); // note we dont catch error here!
   // cudaStream_t stream;
   // cudaStreamCreate(&stream);
   // cublasSetStream(*cublasH, stream); 
 
   cublasOperation_t transa = CUBLAS_OP_T;
-  cublasOperation_t transb = CUBLAS_OP_T;
+  cublasOperation_t transb = CUBLAS_OP_N;
   
 
-  cublasStatus_t err = cublasSgeam(*cublasH, transa, transb,
+  cublasStatus_t err = cublasSgeam(cublasH, transa, transb,
                                   m, n,
                                   &alpha,
                                   deviceA, lda,
@@ -59,5 +62,3 @@ int main() {
 
 
 }
-
-
