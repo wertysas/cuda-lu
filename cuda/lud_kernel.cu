@@ -1,5 +1,6 @@
 #include <cuda.h>
 #include <stdio.h>
+#include <cusolverDn.h>
 
 #ifdef RD_WG_SIZE_0_0
         #define BLOCK_SIZE RD_WG_SIZE_0_0
@@ -189,7 +190,7 @@ lud_internal(float *m, int matrix_dim, int offset)
 
 }
 
-
+// m is a device copy of the matrix, it's NOT a pointer to host memory
 void lud_cuda(float *m, int matrix_dim)
 {
   int i=0;
@@ -204,4 +205,5 @@ void lud_cuda(float *m, int matrix_dim)
   }
   lud_diagonal<<<1,BLOCK_SIZE>>>(m, matrix_dim, i);
 }
+
 
