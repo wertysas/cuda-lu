@@ -76,19 +76,32 @@ int main() {
 
   //LU decomposition using cuSOLVER cusolverDnXgetrf()
   // see docoumentation at: https://docs.nvidia.com/cuda/cusolver/index.html#cusolverdnxgetrf
-  int info;
+  int hostInfo=0;
+  int* deviceInfo;
+  cudaMemcpy(deviceInfo, &hostInfo, sizeof(int), cudaMemcpyHostToDevice);
   cusolverDnXgetrf(cusolverHandle, cusolverParams,
       m, n, CUDA_R_32F, deviceC, ldc, nullptr, CUDA_R_32F,
-      deviceBuffer, deviceBufferSize, hostBuffer, hostBufferSize, &info);
+      deviceBuffer, deviceBufferSize, hostBuffer, hostBufferSize, deviceInfo);
 
-  cudaDeviceSynchronize();
-  printf("info (should be 0 if LU successful) %d\n", info);
+  cudaMemcpy(&hostInfo, deviceInfo, sizeof(int), cudaMemcpyDeviceToHost);
+  printf("info (should be 0 if LU successful) %d\n", hostInfo);
 
 
   cudaMemcpy(hostC, deviceC, sizeC, cudaMemcpyDeviceToHost);
   std::printf("LU decomposed C matrix print:\n");
   print_matrix(hostC, N);
 
+  cublasSgeam(cublasHandle, transa, transb,
+    m, n,
+    &alpha,
+    deviceC, ldc,
+    &beta,
+    nullptr, ldb,
+    deviceA, lda);
+    
+  cudaMemcpy(hostA, deviceA, sizeA, cudaMemcpyDeviceToHost);
+  std::printf("LU decomposed A matrix print:\n");
+  print_matrix(hostA, N);
 
   // Destroy cuBLAS Handle
   cublasDestroy(cublasHandle);
