@@ -48,6 +48,9 @@ static struct option long_options[] = {
 extern void
 lud_cuda(float *d_m, int matrix_dim);
 
+extern void
+lud_cusolver(float *d_m, int matrix_dim);
+
 
 int
 main ( int argc, char *argv[] )

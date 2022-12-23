@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <cusolverDn.h>
 
+#include "common.h"
+
 #ifdef RD_WG_SIZE_0_0
         #define BLOCK_SIZE RD_WG_SIZE_0_0
 #elif defined(RD_WG_SIZE_0)
@@ -209,10 +211,10 @@ void lud_cuda(float *m, int matrix_dim)
 void lud_cusolver(float *device_m, int matrix_dim)
 {
   int m=matrix_dim, n=matrix_dim, ld = matrix_dim;
-  size_t matrix_size = sizeof(data_type)*matrix_dim*matrix_dim;
-  float *deviceC;
-  cudaMalloc(&deviceC, sizeC);
-  cudaMemcpy(deviceC, hostC, sizeC, cudaMemcpyHostToDevice);
+  size_t matrix_size = sizeof(float)*matrix_dim*matrix_dim;
+  float *deviceC, *hostC;
+  cudaMalloc(&deviceC, matrix_size);
+  cudaMemcpy(deviceC, hostC, matrix_size, cudaMemcpyHostToDevice);
 
 
   cublasHandle_t cublasHandle;
@@ -245,9 +247,9 @@ void lud_cusolver(float *device_m, int matrix_dim)
     CUDA_R_32F,
     &deviceBufferSize,
     &hostBufferSize);
-  data_type *deviceBuffer, *hostBuffer;
-  cudaMalloc(&deviceBuffer, sizeof(data_type)*deviceBufferSize);
-  hostBuffer = (data_type *) malloc(sizeof(data_type)*deviceBufferSize);
+  float *deviceBuffer, *hostBuffer;
+  cudaMalloc(&deviceBuffer, sizeof(float)*deviceBufferSize);
+  hostBuffer = (float *) malloc(sizeof(float)*deviceBufferSize);
 
 
   //LU decomposition using cuSOLVER cusolverDnXgetrf()
@@ -266,14 +268,14 @@ void lud_cusolver(float *device_m, int matrix_dim)
   cublasSgeam(cublasHandle, transa, transb,
     m, n,
     &alpha,
-    deviceC, ldc,
+    deviceC, ld,
     &beta,
-    nullptr, ldb,
-    deviceA, lda);
+    nullptr, ld,
+    device_m, ld);
     
-  cudaMemcpy(hostA, deviceA, sizeA, cudaMemcpyDeviceToHost);
-  std::printf("LU decomposed A matrix print:\n");
-  print_matrix(hostA, N);
+  cudaMemcpy(hostC, device_m, matrix_size, cudaMemcpyDeviceToHost);
+  //printf("LU decomposed A matrix print:\n");
+  //print_matrix(hostC, matrix_dim);
 
   // Destroy cuBLAS Handle
   cublasDestroy(cublasHandle);
@@ -285,7 +287,4 @@ void lud_cusolver(float *device_m, int matrix_dim)
   cudaFree(deviceC);
 
 }
-
-
-
 
