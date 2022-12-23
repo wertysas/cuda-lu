@@ -4,3 +4,5 @@
 *.ptx
 *.cubin
 *.fatbin
+*ctags
+.ycm_extra_conf.py

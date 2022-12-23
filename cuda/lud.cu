@@ -134,7 +134,8 @@ main ( int argc, char *argv[] )
   cudaMemcpy(d_m, m, matrix_dim*matrix_dim*sizeof(float), 
 	     cudaMemcpyHostToDevice);
 
-  lud_cuda(d_m, matrix_dim);
+  //lud_cuda(d_m, matrix_dim);
+  lud_cusolver(d_m, matrix_dim);
 
   cudaMemcpy(m, d_m, matrix_dim*matrix_dim*sizeof(float), 
 	     cudaMemcpyDeviceToHost);
