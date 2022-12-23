@@ -17,7 +17,6 @@ int main() {
   float hostA[9] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
   float hostC[9];
   int  m=N, n=N, lda=N, ldb=N, ldc=N;
-  float alpha=1, beta=0;
   size_t sizeA = sizeof(data_type)*N*N;
   size_t sizeC = sizeA;
   float *deviceA, *deviceC;
@@ -30,17 +29,15 @@ int main() {
   std::printf("A matrix print:\n");
   print_matrix(hostA, N); 
 
-  cublasHandle_t cublasH;
-  cublasCreate(&cublasH); // note we dont catch error here!
-  // cudaStream_t stream;
-  // cudaStreamCreate(&stream);
-  // cublasSetStream(*cublasH, stream); 
-
+  cublasHandle_t cublasHandle;
+  cublasCreate(&cublasHandle); // note we dont catch error here!
+  
+  // Matrix transposition using cuBLAS Sgeam see documentation at:
+  // https://docs.nvidia.com/cuda/cublas/index.html#cublas-t-geam
   cublasOperation_t transa = CUBLAS_OP_T;
   cublasOperation_t transb = CUBLAS_OP_N;
-  
-
-  cublasStatus_t err = cublasSgeam(cublasH, transa, transb,
+  float alpha=1, beta=0;
+  cublasStatus_t blasStatus = cublasSgeam(cublasHandle, transa, transb,
                                   m, n,
                                   &alpha,
                                   deviceA, lda,
@@ -56,9 +53,52 @@ int main() {
   print_matrix(hostA, N);
   std::printf("C matrix print:\n");
   print_matrix(hostC, N);
-  // cusolverDnHandle_t* cusolverHandle;
-  // cusolverStatus_t cusolverStatus = cusolverDnCreate(cusolverHandle);
+  
+  
+
+  cusolverDnHandle_t cusolverHandle;
+  cusolverStatus_t cusolverStatus = cusolverDnCreate(&cusolverHandle);
+  cusolverDnParams_t cusolverParams;
+  cusolverDnCreateParams(&cusolverParams); // default initialization we don't use advanced options
+
+  // Creating Host and Device Buffers Required by LU solver
+  size_t hostBufferSize = 0, deviceBufferSize=0;
+  cusolverDnXgetrf_bufferSize(cusolverHandle, cusolverParams,
+    m, n,
+    CUDA_R_32F, deviceC, ldc,
+    CUDA_R_32F,
+    &deviceBufferSize,
+    &hostBufferSize);
+  data_type *deviceBuffer, *hostBuffer;
+  cudaMalloc(&deviceBuffer, sizeof(data_type)*deviceBufferSize);
+  hostBuffer = (data_type *) malloc(sizeof(data_type)*deviceBufferSize);
 
 
+  //LU decomposition using cuSOLVER cusolverDnXgetrf()
+  // see docoumentation at: https://docs.nvidia.com/cuda/cusolver/index.html#cusolverdnxgetrf
+  int info;
+  cusolverDnXgetrf(cusolverHandle, cusolverParams,
+      m, n, CUDA_R_32F, deviceC, ldc, nullptr, CUDA_R_32F,
+      deviceBuffer, deviceBufferSize, hostBuffer, hostBufferSize, &info);
+
+  cudaDeviceSynchronize();
+  printf("info (should be 0 if LU successful) %d\n", info);
+
+
+  cudaMemcpy(hostC, deviceC, sizeC, cudaMemcpyDeviceToHost);
+  std::printf("LU decomposed C matrix print:\n");
+  print_matrix(hostC, N);
+
+
+  // Destroy cuBLAS Handle
+  cublasDestroy(cublasHandle);
+  // Destroy cusolverDnParams
+  cusolverDnDestroyParams(cusolverParams);
+  // Destroy cuSOLVER Handle
+  cusolverDnDestroy(cusolverHandle);
+
+
+  cudaFree(deviceA);
+  cudaFree(deviceC);
 
 }
