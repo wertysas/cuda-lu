@@ -35,7 +35,7 @@
         #define BLOCK_SIZE 16
 #endif
 
-static int do_verify = 0;
+static int do_verify = 1;
 
 static struct option long_options[] = {
   /* name, has_arg, flag, val */
