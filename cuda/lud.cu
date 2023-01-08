@@ -136,9 +136,11 @@ main ( int argc, char *argv[] )
   stopwatch_start(&sw);
   cudaMemcpy(d_m, m, matrix_dim*matrix_dim*sizeof(float), 
 	     cudaMemcpyHostToDevice);
-
-  //lud_cuda(d_m, matrix_dim);
+#ifdef CUSOLVER
   lud_cusolver(d_m, matrix_dim);
+#else
+  lud_cuda(d_m, matrix_dim);
+#endif
 
   cudaMemcpy(m, d_m, matrix_dim*matrix_dim*sizeof(float), 
 	     cudaMemcpyDeviceToHost);

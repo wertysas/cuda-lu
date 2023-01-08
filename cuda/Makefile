@@ -21,7 +21,7 @@ CFLAGS += -I/usr/local/cuda \
 		  $(SPACE)
 
 # Add source files here
-EXECUTABLE  := lud_cuda
+EXECUTABLE  := lud_cuda lud_cusolver
 # Cuda source files (compiled with cudacc)
 CUFILES     := lud_kernel.cu
 # C/C++ source files (compiled with gcc / c++)
@@ -39,8 +39,11 @@ all : $(EXECUTABLE)
 	$(NVCC) $(KERNEL_DIM) $(NVCCFLAGS) $(DEFS) -o $@ -c $<
 
 
-$(EXECUTABLE) : $(OBJS)
+lud_cuda : $(OBJS)
 	$(NVCC) $(NVCCFLAGS) -o $@  $?
+
+lud_cuda : $(OBJS)
+	$(NVCC) -D CUSOLVER $(NVCCFLAGS) -o $@  $?
 
 clean:
 	rm -f $(EXECUTABLE) $(OBJS) *.linkinfo
