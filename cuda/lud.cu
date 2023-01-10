@@ -132,8 +132,21 @@ main ( int argc, char *argv[] )
   cudaMalloc((void**)&d_m, 
              matrix_dim*matrix_dim*sizeof(float));
 
+  
+
   /* beginning of timing point */
   stopwatch_start(&sw);
+#ifdef STREAMING
+  create
+  cudaStream_t stream = NULL;
+  cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
+  cudaMemcpyAsync(d_m, m, matrix_dim*matrix_dim*sizeof(float), 
+	     cudaMemcpyHostToDevice, stream);
+  lud_cusolver_streaming(d_m, matrix_dim, stream);
+  cudaMemcpyAsync(m, d_m, matrix_dim*matrix_dim*sizeof(float), 
+	     cudaMemcpyDeviceToHost, stream);
+  cudaStreamSynchronise(stream);
+#else // ifndef STREAMING
   cudaMemcpy(d_m, m, matrix_dim*matrix_dim*sizeof(float), 
 	     cudaMemcpyHostToDevice);
 #ifdef CUSOLVER
@@ -141,9 +154,9 @@ main ( int argc, char *argv[] )
 #else
   lud_cuda(d_m, matrix_dim);
 #endif
-
   cudaMemcpy(m, d_m, matrix_dim*matrix_dim*sizeof(float), 
 	     cudaMemcpyDeviceToHost);
+#endif // ifndef STREAMING
 
   /* end of timing point */
   stopwatch_stop(&sw);

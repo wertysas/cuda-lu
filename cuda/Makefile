@@ -1,13 +1,11 @@
-CC = gcc
+CC = g++
 NVCC = nvcc
 
 CC := $(CUDA_DIR)/bin/nvcc
 
 INCLUDE := $(CUDA_DIR)/include
 
-DEFS += \
-		-DGPU_TIMER \
-		$(SPACE)
+DEFS := -DGPU_TIMER $(SPACE)
 
 NVCCFLAGS += -O3 \
 			 -use_fast_math \
@@ -42,7 +40,7 @@ all : $(EXECUTABLE)
 lud_cuda : $(OBJS)
 	$(NVCC) $(NVCCFLAGS) -o $@  $?
 
-lud_cuda : $(OBJS)
+lud_cusolver : $(OBJS)
 	$(NVCC) -D CUSOLVER $(NVCCFLAGS) -o $@  $?
 
 clean:

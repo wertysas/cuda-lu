@@ -288,3 +288,88 @@ void lud_cusolver(float *device_m, int matrix_dim)
 
 }
 
+
+void lud_cusolver_streaming(float *device_m, int matrix_dim, cudaStream_t& stream)
+{
+  int m=matrix_dim, n=matrix_dim, ld = matrix_dim;
+  size_t matrix_size = sizeof(float)*matrix_dim*matrix_dim;
+  float *deviceC, *hostC;
+  cudaMalloc(&deviceC, matrix_size);
+  cudaMemcpyAsync(deviceC, hostC, matrix_size, cudaMemcpyHostToDevice, stream);
+
+
+  cublasHandle_t cublasHandle;
+  cublasCreate(&cublasHandle); // note we dont catch error here!
+  cublasSetStream(cublasHandle, stream); 
+
+
+  // Matrix transposition using cuBLAS Sgeam see documentation at:
+  // https://docs.nvidia.com/cuda/cublas/index.html#cublas-t-geam
+  cublasOperation_t transa = CUBLAS_OP_T;
+  cublasOperation_t transb = CUBLAS_OP_N;
+  float alpha=1, beta=0;
+  cublasStatus_t blasStatus = cublasSgeam(cublasHandle, transa, transb,
+                                  m, n,
+                                  &alpha,
+                                  device_m, ld,
+                                  &beta,
+                                  nullptr, ld,
+                                  deviceC, ld);
+    
+  
+  cusolverDnHandle_t cusolverHandle;
+  cusolverStatus_t cusolverStatus = cusolverDnCreate(&cusolverHandle);
+  cusolverStatus = cusolverDnSetStream(cusolverHandle, stream);
+  cusolverDnParams_t cusolverParams;
+  cusolverDnCreateParams(&cusolverParams); // default initialization we don't use advanced options
+
+  // Creating Host and Device Buffers Required by LU solver
+  size_t hostBufferSize = 0, deviceBufferSize=0;
+  cusolverDnXgetrf_bufferSize(cusolverHandle, cusolverParams,
+    m, n,
+    CUDA_R_32F, deviceC, ld,
+    CUDA_R_32F,
+    &deviceBufferSize,
+    &hostBufferSize);
+  float *deviceBuffer, *hostBuffer;
+  cudaMalloc(&deviceBuffer, sizeof(float)*deviceBufferSize);
+  hostBuffer = (float *) malloc(sizeof(float)*deviceBufferSize);
+
+
+  //LU decomposition using cuSOLVER cusolverDnXgetrf()
+  // see docoumentation at: https://docs.nvidia.com/cuda/cusolver/index.html#cusolverdnxgetrf
+  int hostInfo=0;
+  int* deviceInfo;
+  cudaMemcpyAsync(deviceInfo, &hostInfo, sizeof(int), cudaMemcpyHostToDevice, stream);
+  cusolverDnXgetrf(cusolverHandle, cusolverParams,
+      m, n, CUDA_R_32F, deviceC, ld, nullptr, CUDA_R_32F,
+      deviceBuffer, deviceBufferSize, hostBuffer, hostBufferSize, deviceInfo);
+  cudaMemcpyAsync(&hostInfo, deviceInfo, sizeof(int), cudaMemcpyDeviceToHost, stream);
+#ifdef DEBUG
+  printf("info (should be 0 if LU successful) %d\n", hostInfo);
+#endif
+  // Transpose matrix back
+  cublasSgeam(cublasHandle, transa, transb,
+    m, n,
+    &alpha,
+    deviceC, ld,
+    &beta,
+    nullptr, ld,
+    device_m, ld);
+    
+  cudaMemcpyAsync(hostC, device_m, matrix_size, cudaMemcpyDeviceToHost, stream);
+  //printf("LU decomposed A matrix print:\n");
+  //print_matrix(hostC, matrix_dim);
+
+  // Destroy cuBLAS Handle
+  cublasDestroy(cublasHandle);
+  // Destroy cusolverDnParams
+  cusolverDnDestroyParams(cusolverParams);
+  // Destroy cuSOLVER Handle
+  cusolverDnDestroy(cusolverHandle);
+
+  cudaFree(deviceC);
+
+}
+
+
