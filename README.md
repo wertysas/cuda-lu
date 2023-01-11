@@ -21,7 +21,7 @@ make cuda-lu-cusolver-streaming && ./cuda-lu-cusolver-streaming -i 512.dat
 
 To run and profile these applications with NVPROF, first generate the input using the gen_input application in the ``tools`` folder. For example, to generate a 1024x1024 matrix input, 
 ```bash
-cd tools && ./gen_input 1024
+cd tools && make && ./gen_input 1024
 ```
 
 And then, run and profile these applications
