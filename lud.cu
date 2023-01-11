@@ -1,7 +1,7 @@
 /*
  * =====================================================================================
  *
- *       Filename:  suite.c
+ *       Filename:  lud.cu
  *
  *    Description:  The main wrapper for the suite
  *
@@ -16,6 +16,7 @@
  * =====================================================================================
  */
 
+#include <cuda.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <getopt.h>
@@ -24,8 +25,17 @@
 
 #include "common.h"
 
-static int do_verify = 0;
-int omp_num_threads = 40;
+#ifdef RD_WG_SIZE_0_0
+        #define BLOCK_SIZE RD_WG_SIZE_0_0
+#elif defined(RD_WG_SIZE_0)
+        #define BLOCK_SIZE RD_WG_SIZE_0
+#elif defined(RD_WG_SIZE)
+        #define BLOCK_SIZE RD_WG_SIZE
+#else
+        #define BLOCK_SIZE 16
+#endif
+
+static int do_verify = 1;
 
 static struct option long_options[] = {
   /* name, has_arg, flag, val */
@@ -36,20 +46,27 @@ static struct option long_options[] = {
 };
 
 extern void
-lud_omp(float *m, int matrix_dim);
+lud_cuda(float *d_m, int matrix_dim);
+
+extern void
+lud_cusolver(float *d_m, int matrix_dim);
+
+extern void
+lud_cusolver_streaming(float *d_m, int matrix_dim, cudaStream_t &stream);
 
 int
 main ( int argc, char *argv[] )
 {
-  int matrix_dim = 32; /* default size */
+  printf("WG size of kernel = %d X %d\n", BLOCK_SIZE, BLOCK_SIZE);
+
+  int matrix_dim = 32; /* default matrix_dim */
   int opt, option_index=0;
   func_ret_t ret;
   const char *input_file = NULL;
-  float *m, *mm;
+  float *m, *d_m, *mm;
   stopwatch sw;
 
-	
-  while ((opt = getopt_long(argc, argv, "::vs:n:i:", 
+  while ((opt = getopt_long(argc, argv, "::vs:i:", 
                             long_options, &option_index)) != -1 ) {
     switch(opt){
     case 'i':
@@ -57,9 +74,6 @@ main ( int argc, char *argv[] )
       break;
     case 'v':
       do_verify = 1;
-      break;
-    case 'n':
-      omp_num_threads = atoi(optarg);
       break;
     case 's':
       matrix_dim = atoi(optarg);
@@ -82,7 +96,7 @@ main ( int argc, char *argv[] )
   }
   
   if ( (optind < argc) || (optind == 1)) {
-    fprintf(stderr, "Usage: %s [-v] [-n no. of threads] [-s matrix_size|-i input_file]\n", argv[0]);
+    fprintf(stderr, "Usage: %s [-v] [-s matrix_size|-i input_file]\n", argv[0]);
     exit(EXIT_FAILURE);
   }
 
@@ -94,7 +108,7 @@ main ( int argc, char *argv[] )
       fprintf(stderr, "error create matrix from file %s\n", input_file);
       exit(EXIT_FAILURE);
     }
-  }
+  } 
   else if (matrix_dim) {
     printf("Creating matrix internally size=%d\n", matrix_dim);
     ret = create_matrix(&m, matrix_dim);
@@ -104,33 +118,65 @@ main ( int argc, char *argv[] )
       exit(EXIT_FAILURE);
     }
   }
- 
+
+
   else {
     printf("No input file specified!\n");
     exit(EXIT_FAILURE);
-  } 
+  }
 
   if (do_verify){
     printf("Before LUD\n");
-    /* print_matrix(m, matrix_dim); */
+    // print_matrix(m, matrix_dim);
     matrix_duplicate(m, &mm, matrix_dim);
   }
 
+  cudaMalloc((void**)&d_m, 
+             matrix_dim*matrix_dim*sizeof(float));
 
+  
+
+  /* beginning of timing point */
   stopwatch_start(&sw);
-  lud_omp(m, matrix_dim);
+#ifdef STREAMING
+
+  cudaStream_t stream = NULL;
+  cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
+  cudaMemcpyAsync(d_m, m, matrix_dim*matrix_dim*sizeof(float), 
+	     cudaMemcpyHostToDevice, stream);
+  lud_cusolver_streaming(d_m, matrix_dim, stream);
+  cudaMemcpyAsync(m, d_m, matrix_dim*matrix_dim*sizeof(float), 
+	     cudaMemcpyDeviceToHost, stream);
+  cudaStreamSynchronize(stream);
+#else // ifndef STREAMING
+  cudaMemcpy(d_m, m, matrix_dim*matrix_dim*sizeof(float), 
+	     cudaMemcpyHostToDevice);
+#ifdef CUSOLVER
+  lud_cusolver(d_m, matrix_dim);
+#else
+  lud_cuda(d_m, matrix_dim);
+#endif
+  cudaMemcpy(m, d_m, matrix_dim*matrix_dim*sizeof(float), 
+	     cudaMemcpyDeviceToHost);
+#endif // ifndef STREAMING
+
+  /* end of timing point */
   stopwatch_stop(&sw);
   printf("Time consumed(ms): %lf\n", 1000*get_interval_by_sec(&sw));
 
+  cudaFree(d_m);
+
+
   if (do_verify){
     printf("After LUD\n");
-    /* print_matrix(m, matrix_dim); */
+    // print_matrix(m, matrix_dim);
     printf(">>>Verify<<<<\n");
     lud_verify(mm, m, matrix_dim); 
     free(mm);
   }
-  
+
   free(m);
 
   return EXIT_SUCCESS;
 }				/* ----------  end of function main  ---------- */
+
