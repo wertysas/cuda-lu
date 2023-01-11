@@ -4,9 +4,24 @@ This directory contains 3 applications that are all implementations of LU decomp
 
 To compile, type ``make all``.
 
+The applications can be run using
+```bash
+./cuda-lu -i [inputfile]
+
+./cuda-lu-cusolver -i [inputfile]
+
+./cuda-lu-cusolver-streaming -i [inputfile]
+```
+
+To build and run the the cuSOLVER implementation with the provided 512x512 matrix data file, use the command:
+```bash
+make cuda-lu-cusolver-streaming && ./cuda-lu-cusolver-streaming -i 512.dat
+```
+
+
 To run and profile these applications with NVPROF, first generate the input using the gen_input application in the ``tools`` folder. For example, to generate a 1024x1024 matrix input, 
 ```bash
-cd tools && gen_input 1024
+cd tools && ./gen_input 1024
 ```
 
 And then, run and profile these applications
