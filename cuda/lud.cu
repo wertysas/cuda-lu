@@ -51,6 +51,8 @@ lud_cuda(float *d_m, int matrix_dim);
 extern void
 lud_cusolver(float *d_m, int matrix_dim);
 
+extern void
+lud_cusolver_streaming(float *d_m, int matrix_dim, cudaStream_t &stream);
 
 int
 main ( int argc, char *argv[] )
@@ -137,7 +139,7 @@ main ( int argc, char *argv[] )
   /* beginning of timing point */
   stopwatch_start(&sw);
 #ifdef STREAMING
-  create
+
   cudaStream_t stream = NULL;
   cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
   cudaMemcpyAsync(d_m, m, matrix_dim*matrix_dim*sizeof(float), 
@@ -145,7 +147,7 @@ main ( int argc, char *argv[] )
   lud_cusolver_streaming(d_m, matrix_dim, stream);
   cudaMemcpyAsync(m, d_m, matrix_dim*matrix_dim*sizeof(float), 
 	     cudaMemcpyDeviceToHost, stream);
-  cudaStreamSynchronise(stream);
+  cudaStreamSynchronize(stream);
 #else // ifndef STREAMING
   cudaMemcpy(d_m, m, matrix_dim*matrix_dim*sizeof(float), 
 	     cudaMemcpyHostToDevice);
@@ -177,3 +179,4 @@ main ( int argc, char *argv[] )
 
   return EXIT_SUCCESS;
 }				/* ----------  end of function main  ---------- */
+
